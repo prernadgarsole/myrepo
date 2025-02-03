@@ -21,10 +21,35 @@ $unixTime = [int64][math]::Truncate([double]$endTimeUnix / 1000)
 $tempDate = get-date "1/1/1970"
 $endTime = $tempDate.AddSeconds($unixTime).ToLocalTime()
 
-# Extract Component Details
-$componentProcess = $requestJson.rootTrace.children[1].children[0].children[0]
-$componentName = $componentProcess.component.name
-$componentVersion = $componentProcess.version.name
+# Debugging: Check JSON Structure Before Extracting Component Details
+Write-Output "Root Trace Children Count: $($requestJson.rootTrace.children.Count)"
+Write-Output "Checking children structure..."
+
+# Ensure correct path to extract Component Name and Version
+$componentName = "N/A"
+$componentVersion = "N/A"
+
+# Traverse JSON structure safely
+foreach ($child in $requestJson.rootTrace.children) {
+    if ($child.type -eq "multiComponentEnvironmentIterator") {
+        foreach ($subchild in $child.children) {
+            if ($subchild.type -eq "componentEnvironmentIterator") {
+                foreach ($subsubchild in $subchild.children) {
+                    if ($subsubchild.type -eq "inventoryVersionDiff") {
+                        foreach ($compProcess in $subsubchild.children) {
+                            if ($compProcess.type -eq "componentProcess") {
+                                $componentName = $compProcess.component.name
+                                $componentVersion = $compProcess.version.name
+                                Write-Output "Component Name: $componentName"
+                                Write-Output "Component Version: $componentVersion"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 # Format Data for CSV
 $line = "$AppName,$EnvName,$userName,$startTime,$endTime,$componentName,$componentVersion"
